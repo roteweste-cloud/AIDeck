@@ -25,6 +25,7 @@ export default definePlugin(() => {
   let message = "";
   let keyboardRequests = 0;
   let openingTimer: number | undefined;
+  let finishOpening: ((opened: boolean) => void) | undefined;
   const statusEvents = new EventTarget();
   const status = () => message;
   const keyboardRequested = () => keyboardRequests;
@@ -53,11 +54,12 @@ export default definePlugin(() => {
   };
   void load().then(apply).catch(notify);
 
-  const mounted = () => { overlay = true; opening = false; clearTimeout(openingTimer); };
+  const mounted = () => { overlay = true; finishOpening?.(true); };
   const unmounted = () => {
     overlay = false;
     opening = false;
     clearTimeout(openingTimer);
+    finishOpening?.(false);
     generation++;
     browser.blur();
   };
@@ -65,22 +67,30 @@ export default definePlugin(() => {
     if (pendingClose) return;
     pendingClose = true;
     generation++;
+    finishOpening?.(false);
     browser.blur();
     try { resumeGame(); }
     catch (error) { pendingClose = false; notify(error); }
   };
-  const open = () => {
+  const open = async () => {
     browser.start();
-    if (!overlay && !opening) {
-      opening = true;
-      pendingClose = false;
-      // If Steam never mounts the route, the next shortcut must open it again
-      // instead of being treated as "close overlay".
-      clearTimeout(openingTimer);
-      openingTimer = window.setTimeout(() => { opening = false; }, 4000);
-      try { showOverlay(); }
-      catch (error) { opening = false; clearTimeout(openingTimer); throw error; }
-    }
+    if (overlay) return true;
+    opening = true;
+    pendingClose = false;
+    const mounted = new Promise<boolean>(resolve => {
+      finishOpening = opened => {
+        clearTimeout(openingTimer);
+        opening = false;
+        finishOpening = undefined;
+        resolve(opened);
+      };
+      openingTimer = window.setTimeout(() => finishOpening?.(false), 4000);
+    });
+    try { showOverlay(); }
+    catch (error) { finishOpening?.(false); throw error; }
+    const opened = await mounted;
+    if (!opened && !pendingClose && !disposed) throw new Error("Steam did not open the AI Deck chat window. Try the Decky button again.");
+    return opened;
   };
 
   const screenshot = async (fromOverlay = false) => {
@@ -92,8 +102,7 @@ export default definePlugin(() => {
     let captured = false;
     let captureError = "";
     loginMode = false;
-    setStatus(current.appid === "global" ? "No game running. Opening chat only." : "Shortcut received. Capturing screenshot…");
-    // The overlay is not visible yet, so confirm the shortcut right away.
+    setStatus(current.appid === "global" ? "No game running. Opening chat only." : "Capturing screenshot…");
     if (!fromOverlay && current.appid !== "global" && !disposed) {
       toaster.toast({ title: "AI Deck", body: "Capturing screenshot…", duration: 1500 });
     }
@@ -116,7 +125,7 @@ export default definePlugin(() => {
       if (disposed || generation !== id) return;
       game = current;
       overlayProvider = selected;
-      open();
+      if (!await open()) return;
       try { await browser.ready(); }
       catch (error) {
         browser.view?.LoadURL(await call<[string, Provider], string>("chat_for_game", game.appid, selected));
@@ -152,7 +161,7 @@ export default definePlugin(() => {
       overlayProvider = selected;
       loginMode = !reset;
       setStatus(reset ? "" : "Sign in here, then choose X · Send screenshot in a running game.");
-      open();
+      if (!await open()) return;
       const view = browser.view;
       // Manual login remains available if Steam's debugger cannot connect.
       try { await browser.ready(); } catch (error) { notify(error); }
@@ -266,7 +275,7 @@ export default definePlugin(() => {
       disposed = true;
       generation++;
       clearInterval(timer);
-      clearTimeout(openingTimer);
+      finishOpening?.(false);
       removeEventListener("grip_shortcut", gripShortcut);
       drop(registration);
       drop(stateRegistration);

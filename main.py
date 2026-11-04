@@ -18,7 +18,7 @@ LEGACY_PROMPTS = json.loads((BASE / "defaults/prompts.json").read_text(encoding=
 PROMPTS = json.loads((BASE / "defaults/prompts.en.json").read_text(encoding="utf-8"))
 PROVIDERS = web_driver.PROVIDERS
 DARK_MODE = (BASE / "py_modules/dark_mode.js").read_text(encoding="utf-8")
-DEFAULTS = {"enabled": True, "buttons": [32, 33], "prompts": PROMPTS, "chats": {}, "provider": "chatgpt"}
+DEFAULTS = {"enabled": False, "buttons": [32, 33], "prompts": PROMPTS, "chats": {}, "provider": "chatgpt"}
 
 
 class Plugin:
@@ -29,6 +29,8 @@ class Plugin:
             self.settings = {**DEFAULTS, **json.loads(self.file.read_text(encoding="utf-8"))}
         except (OSError, ValueError, TypeError):
             self.settings = DEFAULTS.copy()
+        if not self.settings.get("menu_first"):
+            self.settings.update(enabled=False, menu_first=True)
         if self.settings.get("provider") not in PROVIDERS:
             self.settings["provider"] = "chatgpt"
         old_prompts = self.settings.get("prompts", {})

@@ -49,11 +49,16 @@ export function SettingsPanel({ shortcut, load, save, open, capture, reset, repo
 
   return <>
     <PanelSection title="AI Deck">
+      <PanelSectionRow><ButtonItem layout="below" onClick={capture}
+        description={`Capture the game, open ${providers[settings.provider]}, and send the screenshot with your prompt.`}>
+        Ask AI about this screen
+      </ButtonItem></PanelSectionRow>
+      <PanelSectionRow><ButtonItem layout="below" onClick={open}>Open {providers[settings.provider]} / sign in</ButtonItem></PanelSectionRow>
       <PanelSectionRow><DropdownItem label="AI provider" description="Claude, Gemini, DeepSeek and Perplexity are experimental." disabled={saving || recording}
         rgOptions={Object.entries(providers).map(([data, label]) => ({ data, label }))}
         selectedOption={settings.provider}
         onChange={({ data }) => void update({ ...settings, provider: data })} /></PanelSectionRow>
-      <PanelSectionRow><ToggleField label="Enable shortcut" checked={settings.enabled} disabled={saving || recording}
+      <PanelSectionRow><ToggleField label="Enable in-game shortcut" checked={settings.enabled} disabled={saving || recording}
         onChange={enabled => void update({ ...settings, enabled })} /></PanelSectionRow>
       <PanelSectionRow><ButtonItem layout="below" disabled={saving || recording}
         description={recording ? "Hold at least two buttons together, then release them." : comboLabel(settings.buttons)}
@@ -66,8 +71,6 @@ export function SettingsPanel({ shortcut, load, save, open, capture, reset, repo
             else if (result === "timeout") report("Shortcut recording timed out.");
           });
         }}>Record shortcut</ButtonItem></PanelSectionRow>
-      <PanelSectionRow><ButtonItem layout="below" onClick={open}>Open {providers[settings.provider]} / sign in</ButtonItem></PanelSectionRow>
-      <PanelSectionRow><ButtonItem layout="below" onClick={capture}>Capture screenshot and open chat</ButtonItem></PanelSectionRow>
       <PanelSectionRow><ButtonItem layout="below" onClick={reset}>Reset chat for current game</ButtonItem></PanelSectionRow>
       <PanelSectionRow>
         <div>{providers[settings.provider]}: {status?.provider !== settings.provider || status.ready === null
