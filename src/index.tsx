@@ -6,7 +6,7 @@ import { SettingsPanel, type Provider, type Settings } from "./settings";
 import { Shortcut, StateShortcut, comboLabel } from "./shortcut";
 import { steam, drop } from "./steam";
 
-const CAPTURE_TIMEOUT_MS = 6000;
+const CAPTURE_TIMEOUT_MS = 14000;
 
 export default definePlugin(() => {
   const shortcut = new Shortcut();
@@ -96,27 +96,28 @@ export default definePlugin(() => {
   const screenshot = async (fromOverlay = false) => {
     if (busy || disposed) return;
     const id = generation;
-    const current = fromOverlay ? game : runningGame();
+    let current = fromOverlay ? game : runningGame();
     const selected = fromOverlay ? overlayProvider : provider;
     busy = true;
     let captured = false;
     let captureError = "";
     loginMode = false;
-    setStatus(current.appid === "global" ? "No game running. Opening chat only." : "Capturing screenshot…");
-    if (!fromOverlay && current.appid !== "global" && !disposed) {
+    setStatus("Capturing screenshot…");
+    if (!fromOverlay && !disposed) {
       toaster.toast({ title: "AI Deck", body: "Capturing screenshot…", duration: 1500 });
     }
     try {
-      if (current.appid !== "global") {
+      {
         try {
           // Never leave the player waiting on a stuck capture: open the chat anyway.
           let timeout: number | undefined;
-          await Promise.race([
-            call("capture"),
-            new Promise((_, reject) => {
+          const appid = await Promise.race([
+            call<[string], string>("capture", current.appid),
+            new Promise<never>((_, reject) => {
               timeout = window.setTimeout(() => reject(new Error("Gamescope did not respond in time.")), CAPTURE_TIMEOUT_MS);
             }),
           ]).finally(() => clearTimeout(timeout));
+          if (appid !== current.appid) current = { appid, name: `Steam game ${appid}` };
           captured = true;
         } catch (error) {
           captureError = error instanceof Error ? error.message : String(error);

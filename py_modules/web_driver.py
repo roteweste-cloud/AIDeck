@@ -55,25 +55,29 @@ async def send(cdp, provider, url, screenshot, prompt):
                            lambda s: s["login"] or (
                                (s["path"] == path or (is_new and new_chat_path(provider, s["path"])))
                                and s["composer"]), 20)
-    if not state or state["login"]:
+    if not state:
+        raise RuntimeError("Screenshot captured, but AI Deck could not find the chat input. Check the provider page.")
+    if state["login"]:
         raise RuntimeError("Screenshot captured but not sent. Sign in or complete the browser check, then choose X · Send screenshot.")
     path = state["path"]
     if state["draft"] or state["attachment"]:
         raise RuntimeError("The chat has a draft. Send or clear it first.")
     if state["busy"]:
         raise RuntimeError("The provider is still responding. Try again when it finishes.")
+    if not await page(cdp, provider, "focusComposer", path=path):
+        raise RuntimeError("The provider's chat input could not be focused.")
+    await cdp.call("Input.insertText", text=prompt)
+    if not await wait_for(cdp, provider, lambda s: s["draft"] and not s["login"], 3, path):
+        raise RuntimeError("The provider did not accept the prompt.")
     image = base64.b64encode(screenshot.read_bytes()).decode("ascii")
     await page(cdp, provider, "paste", image, path)
     if not await wait_for(cdp, provider, lambda s: s["attachment"], 3, path):
-        if not await page(cdp, provider, "focus", path=path):
+        if not await page(cdp, provider, "focusComposer", path=path):
             raise RuntimeError("The chat composer is no longer available.")
         await cdp.set_file(provider["selectors"]["file"], screenshot, origin(provider["home"]) + path)
 
     if not await wait_for(cdp, provider, lambda s: s["attachment"], 10, path):
         raise RuntimeError("Could not confirm the screenshot attachment. Check the upload in the overlay.")
-    if not await page(cdp, provider, "focus", path=path):
-        raise RuntimeError("The chat composer is no longer available.")
-    await cdp.call("Input.insertText", text=prompt)
     ready = await wait_for(cdp, provider, lambda s: s["attachment"] and s["draft"]
                            and s["enabled"] and not s["busy"], 20, path)
     if not ready or not await page(cdp, provider, "send", path=path):

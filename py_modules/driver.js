@@ -24,7 +24,7 @@
         messages: document.querySelectorAll(selectors.user).length,
       };
     case "paste": {
-      if (!composer) return false;
+      if (!composer || loginForm || select("login")) return false;
       const bytes = Uint8Array.from(atob(image), (character) => character.charCodeAt(0));
       const data = new DataTransfer();
       data.items.add(new File([bytes], "aideck-screenshot.png", { type: "image/png" }));
@@ -36,8 +36,12 @@
       if (loginForm || document.activeElement?.matches('input, textarea, [contenteditable="true"]')) return true;
       composer?.focus();
       return !!composer;
+    case "focusComposer":
+      if (!composer || loginForm || select("login")) return false;
+      composer.focus();
+      return document.activeElement === composer || composer.contains(document.activeElement);
     case "send":
-      if (!enabled || !draft || !attachment || select("busy")) return false;
+      if (!enabled || !draft || !attachment || loginForm || select("login") || select("busy")) return false;
       send.click();
       return true;
   }

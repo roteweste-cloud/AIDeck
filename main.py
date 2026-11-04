@@ -101,8 +101,8 @@ class Plugin:
             endpoint = await socket_url(session, self.target)
             socket = await connection.enter_async_context(session.ws_connect(endpoint))
             cdp = CDP(socket)
-            await cdp.call("Page.addScriptToEvaluateOnNewDocument", source=DARK_MODE)
             try:
+                await cdp.call("Page.addScriptToEvaluateOnNewDocument", source=DARK_MODE)
                 await cdp.call("Emulation.setEmulatedMedia",
                                features=[{"name": "prefers-color-scheme", "value": "dark"}])
             except RuntimeError as error:
@@ -126,15 +126,18 @@ class Plugin:
             self.save({**self.settings, "chats": {**self.settings["chats"], provider_id: chats}})
             return provider["home"]
 
-    async def capture(self):
+    async def capture(self, appid):
         async with self.lock:
             self.shot.unlink(missing_ok=True)
             try:
-                await screenshot.capture(self.shot)
+                async with asyncio.timeout(12):
+                    detected = await screenshot.capture(self.shot, appid)
                 self.last_error = ""
+                return detected
             except Exception as error:
-                self.last_error = str(error)
-                raise
+                self.last_error = str(error) or "Gamescope capture timed out."
+                decky.logger.warning("AI Deck capture: %s", self.last_error)
+                raise RuntimeError(self.last_error) from error
 
     async def discard(self):
         async with self.lock:
