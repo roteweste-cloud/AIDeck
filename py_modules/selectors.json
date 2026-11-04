@@ -1,9 +1,69 @@
 {
-  "composer": "#prompt-textarea",
-  "send": "[data-testid=\"send-button\"]",
-  "file": "input[type=\"file\"]",
-  "login": "[data-testid=\"login-button\"], [data-testid=\"signup-button\"]",
-  "attachment": "[data-testid*=\"attachment\"], [data-testid*=\"file-thumbnail\"], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Datei entfernen\" i], img[alt=\"Uploaded image\"]",
-  "busy": "[data-testid=\"stop-button\"]",
-  "user": "[data-message-author-role=\"user\"]"
+  "chatgpt": {
+    "home": "https://chatgpt.com/",
+    "path": "/c/[a-zA-Z0-9-]+",
+    "selectors": {
+      "file": "input[type=\"file\"]",
+      "login": "[data-testid=\"login-button\"], [data-testid=\"signup-button\"]",
+      "attachment": "[data-testid*=\"attachment\" i], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Remove attachment\" i], img[src^=\"blob:\"], [data-testid*=\"file-thumbnail\"], button[aria-label*=\"Datei entfernen\" i], img[alt=\"Uploaded image\"]",
+      "busy": "[data-testid=\"stop-button\"]",
+      "composer": "#prompt-textarea",
+      "send": "[data-testid=\"send-button\"]",
+      "user": "[data-message-author-role=\"user\"]"
+    }
+  },
+  "claude": {
+    "home": "https://claude.ai/new",
+    "path": "/chat/[a-zA-Z0-9-]+",
+    "selectors": {
+      "file": "input[type=\"file\"]",
+      "login": "a[href*=\"/login\"], a[href*=\"accounts.google.com/ServiceLogin\"]",
+      "attachment": "[data-testid*=\"attachment\" i], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Remove attachment\" i], img[src^=\"blob:\"], [data-testid*=\"file-thumbnail\"], button[aria-label*=\"Remove image\" i]",
+      "busy": "button[aria-label*=\"Stop generating\" i], button[aria-label*=\"Stop response\" i]",
+      "composer": ".ProseMirror[contenteditable=\"true\"], div[contenteditable=\"true\"][data-placeholder]",
+      "send": "button[data-testid=\"send-button\"], button[aria-label=\"Send message\"]",
+      "user": "[data-testid=\"user-message\"]"
+    }
+  },
+  "gemini": {
+    "home": "https://gemini.google.com/app",
+    "new_path": "/u/\\d+/app",
+    "path": "/(?:u/\\d+/)?app/[a-zA-Z0-9-]+",
+    "selectors": {
+      "file": "input[type=\"file\"]",
+      "login": "a[href*=\"/login\"], a[href*=\"accounts.google.com/ServiceLogin\"]",
+      "attachment": "[data-testid*=\"attachment\" i], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Remove attachment\" i], img[src^=\"blob:\"], .file-preview, .image-preview, button[aria-label*=\"Remove image\" i]",
+      "busy": "button[aria-label*=\"Stop generating\" i], button[aria-label*=\"Stop response\" i], button.stop-button",
+      "composer": "rich-textarea .ql-editor[contenteditable=\"true\"]",
+      "send": "button.send-button, button[aria-label=\"Send message\"]",
+      "user": "user-query"
+    }
+  },
+  "deepseek": {
+    "home": "https://chat.deepseek.com/",
+    "new_path": "/a/chat",
+    "path": "/a/chat/s/[a-zA-Z0-9-]+",
+    "selectors": {
+      "file": "input[type=\"file\"]",
+      "login": "a[href*=\"/login\"], a[href*=\"accounts.google.com/ServiceLogin\"]",
+      "attachment": "[data-testid*=\"attachment\" i], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Remove attachment\" i], img[src^=\"blob:\"], [class*=\"file-preview\"], [class*=\"attachment-preview\"]",
+      "busy": "button[aria-label*=\"Stop generating\" i], button[aria-label*=\"Stop response\" i]",
+      "composer": "#chat-input, textarea[placeholder]",
+      "send": "button[aria-label=\"Send\"], [role=\"button\"][aria-label=\"Send\"], div[role=\"button\"].ds-icon-button--primary",
+      "user": "[class*=\"user-message\"]"
+    }
+  },
+  "perplexity": {
+    "home": "https://www.perplexity.ai/",
+    "path": "/(?:search|thread)/[a-zA-Z0-9_.-]+",
+    "selectors": {
+      "file": "input[type=\"file\"]",
+      "login": "a[href*=\"/login\"], a[href*=\"accounts.google.com/ServiceLogin\"]",
+      "attachment": "[data-testid*=\"attachment\" i], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Remove attachment\" i], img[src^=\"blob:\"], [data-testid*=\"file-preview\"]",
+      "busy": "button[aria-label*=\"Stop generating\" i], button[aria-label*=\"Stop response\" i]",
+      "composer": "#ask-input, textarea[placeholder], [contenteditable=\"true\"][role=\"textbox\"]",
+      "send": "button[data-testid=\"submit-button\"], button[aria-label=\"Submit\"], button[aria-label=\"Send\"]",
+      "user": "[data-testid=\"query-text\"]"
+    }
+  }
 }

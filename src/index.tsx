@@ -1,8 +1,8 @@
 import { call, definePlugin, routerHook, toaster } from "@decky/api";
-import { ChatBrowser, HOME } from "./browser";
+import { ChatBrowser } from "./browser";
 import { ROUTE, resumeGame, runningGame, showOverlay } from "./navigation";
 import { Overlay } from "./overlay";
-import { SettingsPanel, type Settings } from "./settings";
+import { SettingsPanel, type Provider, type Settings } from "./settings";
 import { Shortcut, comboLabel } from "./shortcut";
 import { steam, drop } from "./steam";
 
@@ -16,16 +16,20 @@ export default definePlugin(() => {
   let disposed = false;
   let generation = 0;
   let game = runningGame();
+  let provider: Provider = "chatgpt";
+  let overlayProvider: Provider = provider;
 
   const notify = (error: unknown) => {
     if (!disposed) toaster.toast({ title: "AI Deck", body: error instanceof Error ? error.message : String(error) });
   };
   const load = () => call<[], Settings>("get_settings");
   const apply = (settings: Settings) => {
+    provider = settings.provider;
     shortcut.enabled = settings.enabled;
     shortcut.buttons = settings.buttons;
   };
   const save = async (settings: Settings) => {
+    if (busy && settings.provider !== provider) throw new Error("Wait for the current AI request to finish.");
     await call<[Settings], void>("set_settings", settings);
     apply(settings);
   };
@@ -60,6 +64,7 @@ export default definePlugin(() => {
     if (busy || disposed) return;
     const id = generation;
     const current = fromOverlay ? game : runningGame();
+    const selected = fromOverlay ? overlayProvider : provider;
     busy = true;
     let captured = false;
     try {
@@ -69,11 +74,12 @@ export default definePlugin(() => {
       }
       if (disposed || generation !== id) return;
       game = current;
+      overlayProvider = selected;
       open();
       await browser.ready();
       if (disposed || generation !== id) return;
-      if (captured) await call<[string, string], void>("send_to_chat", game.appid, game.name);
-      else browser.view?.LoadURL(await call<[string], string>("chat_for_game", game.appid));
+      if (captured) await call<[string, string, Provider], void>("send_to_chat", game.appid, game.name, selected);
+      else browser.view?.LoadURL(await call<[string, Provider], string>("chat_for_game", game.appid, selected));
     } catch (error) {
       notify(error);
     } finally {
@@ -90,14 +96,16 @@ export default definePlugin(() => {
     busy = true;
     try {
       game = fromOverlay ? game : runningGame();
+      const selected = fromOverlay ? overlayProvider : provider;
+      overlayProvider = selected;
       open();
       const view = browser.view;
       // Manual login remains available if Steam's debugger cannot connect.
       try { await browser.ready(); } catch (error) { notify(error); }
       if (disposed) return;
-      if (reset) await call<[string], void>("reset_chat", game.appid);
-      view?.LoadURL(reset ? HOME : await call<[string], string>("chat_for_game", game.appid));
-      if (reset) notify("Ein neuer Chat ist bereit. Der bisherige Chat bleibt in ChatGPT erhalten.");
+      const url = await call<[string, Provider], string>(reset ? "reset_chat" : "chat_for_game", game.appid, selected);
+      view?.LoadURL(url);
+      if (reset) notify("A new chat is ready. The previous conversation stays in your provider history.");
     } catch (error) { notify(error); }
     finally { busy = false; }
   };
@@ -105,14 +113,14 @@ export default definePlugin(() => {
   const keyboard = async () => {
     if (busy) return;
     try {
-      const focused = await call<[string], boolean>("browser_action", "focus");
+      const focused = await call<[string, Provider], boolean>("browser_action", "focus", overlayProvider);
       if (!overlay || pendingClose) return;
-      if (!focused) throw new Error("Das ChatGPT-Eingabefeld ist noch nicht bereit.");
+      if (!focused) throw new Error("The chat composer is not ready yet.");
       const view = browser.view;
       view?.m_browserView.SetFocus(true);
       if (view?.m_refKeyboard) view.m_refKeyboard.ShowVirtualKeyboard();
       else if (steam.SteamClient?.System?.OpenVirtualKeyboard) steam.SteamClient.System.OpenVirtualKeyboard();
-      else notify("Bildschirmtastatur über Steam + X öffnen.");
+      else notify("Open the on-screen keyboard with Steam + X.");
     } catch (error) { notify(error); }
   };
   const pageKey = (key: number) => {
@@ -155,7 +163,7 @@ export default definePlugin(() => {
     <Overlay view={browser.view} label={comboLabel(shortcut.buttons)}
       leave={leave} mounted={mounted} unmounted={unmounted} />
   ));
-  try { browser.start(); } catch (error) { console.warn("AI Deck: Browser-Start", error); }
+  try { browser.start(); } catch (error) { console.warn("AI Deck: Browser startup", error); }
   return {
     name: "AI Deck",
     titleView: <span>AI Deck</span>,

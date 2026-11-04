@@ -2,11 +2,11 @@ export const GRACE_MS = 250;
 export const TIMEOUT_MS = 10_000;
 const names: Record<number, string> = {
   0: "A", 1: "B", 2: "X", 3: "Y", 4: "↑", 5: "→", 6: "↓", 7: "←",
-  8: "Menü", 9: "Ansicht", 20: "↑", 21: "↓", 22: "←", 23: "→",
+  8: "Menu", 9: "View", 20: "↑", 21: "↓", 22: "←", 23: "→",
   28: "LT", 29: "RT", 30: "L1", 31: "R1", 32: "L4", 33: "R4",
-  35: "Select", 36: "Start", 37: "Linkes Trackpad", 39: "Rechtes Trackpad", 44: "L5", 45: "R5",
+  35: "Select", 36: "Start", 37: "Left trackpad", 39: "Right trackpad", 44: "L5", 45: "R5",
 };
-export const comboLabel = (buttons: number[]) => buttons.map(button => names[button] ?? `Taste ${button}`).join(" + ");
+export const comboLabel = (buttons: number[]) => buttons.map(button => names[button] ?? `Button ${button}`).join(" + ");
 
 type Result = { buttons: number[] } | "short" | "timeout" | "cancelled";
 type Controller = { held: Set<number>; deferred: Set<number>; latched: boolean };

@@ -4,7 +4,7 @@ import { steam, type Game } from "./steam";
 export const ROUTE = "/aideck";
 export function runningGame(): Game {
   const game = Router?.MainRunningApp as { appid?: number; display_name?: string } | undefined;
-  return game?.appid ? { appid: String(game.appid), name: game.display_name || `Steam-Spiel ${game.appid}` }
+  return game?.appid ? { appid: String(game.appid), name: game.display_name || `Steam game ${game.appid}` }
     : { appid: "global", name: "Steam Deck" };
 }
 

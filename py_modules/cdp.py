@@ -13,7 +13,7 @@ async def targets(session):
             response.raise_for_status()
             return await response.json(content_type=None)
     except (aiohttp.ClientError, TimeoutError) as error:
-        raise RuntimeError("Steam-CEF-Debugger auf Port 8080 nicht erreichbar.") from error
+        raise RuntimeError("Steam CEF debugger is unavailable on port 8080.") from error
 
 
 async def find_target(marker):
@@ -23,7 +23,7 @@ async def find_target(marker):
                 if target.get("url") == f"data:text/plain,{marker}":
                     return target["id"]
             await asyncio.sleep(0.2)
-    raise RuntimeError("AI-Deck-Browser wurde im Steam-CEF-Debugger nicht gefunden.")
+    raise RuntimeError("AI Deck browser was not found in the Steam CEF debugger.")
 
 
 class CDP:
@@ -38,24 +38,27 @@ class CDP:
             while True:
                 frame = await self.socket.receive()
                 if frame.type != aiohttp.WSMsgType.TEXT:
-                    raise RuntimeError("Verbindung zum Steam-Browser getrennt.")
+                    raise RuntimeError("The Steam browser disconnected.")
                 reply = json.loads(frame.data)
                 if reply.get("id") == self.sequence:
                     if "error" in reply:
-                        raise RuntimeError(f"Steam-Browser konnte {method} nicht ausführen.")
+                        raise RuntimeError(f"The Steam browser could not run {method}.")
                     return reply.get("result", {})
 
     async def evaluate(self, expression):
         reply = await self.call("Runtime.evaluate", expression=expression, returnByValue=True)
         if "exceptionDetails" in reply:
-            raise RuntimeError("ChatGPT-Seite konnte nicht gesteuert werden.")
+            raise RuntimeError("The provider page could not be controlled.")
         return reply.get("result", {}).get("value")
 
-    async def set_file(self, selector, path):
-        root = (await self.call("DOM.getDocument"))["root"]["nodeId"]
-        node = (await self.call("DOM.querySelector", nodeId=root, selector=selector))["nodeId"]
+    async def set_file(self, selector, path, expected_url):
+        root = (await self.call("DOM.getDocument"))["root"]
+        document = urlsplit(root["documentURL"])
+        if document._replace(query="", fragment="").geturl().rstrip("/") != expected_url.rstrip("/"):
+            raise RuntimeError("The selected provider page changed before the upload.")
+        node = (await self.call("DOM.querySelector", nodeId=root["nodeId"], selector=selector))["nodeId"]
         if not node:
-            raise RuntimeError("Datei-Eingabe fehlt. Bitte anmelden oder Screenshot manuell anhängen.")
+            raise RuntimeError("No file input is available. Sign in or attach the screenshot in the overlay.")
         await self.call("DOM.setFileInputFiles", nodeId=node, files=[str(path)])
 
 
@@ -65,4 +68,4 @@ async def socket_url(session, target_id):
             path = urlsplit(target.get("webSocketDebuggerUrl", "")).path
             if path.startswith("/devtools/page/"):
                 return f"ws://127.0.0.1:8080{path}"
-    raise RuntimeError("AI-Deck-Browser ist nicht mehr erreichbar. Plugin neu laden.")
+    raise RuntimeError("The AI Deck browser is unavailable. Reload the plugin.")

@@ -18,11 +18,11 @@ export function Overlay({ view, label, leave, mounted, unmounted }: {
       <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
         {view && BrowserContainer
           ? <BrowserContainer browser={view} visible external autoFocus hideForModals displayURLBar={false} className={browserClass} />
-          : <p style={{ padding: 24 }}>Diese Steam-Version stellt den Browser für AI Deck nicht bereit.</p>}
+          : <p style={{ padding: 24 }}>This Steam version does not expose the browser used by AI Deck.</p>}
       </div>
       <footer style={{ padding: "10px 16px", background: "#24262c", fontSize: 13, zIndex: 1 }}>
-        <button onClick={leave}>B / {label} · Zurück</button>
-        {"  ·  Y Tastatur  ·  X Screenshot  ·  Start Neuer Chat  ·  ↑↓ Scrollen"}
+        <button onClick={leave}>B / {label} · Back</button>
+        {"  ·  Y Keyboard  ·  X Screenshot  ·  Start New chat  ·  ↑↓ Scroll"}
       </footer>
     </div>
   );

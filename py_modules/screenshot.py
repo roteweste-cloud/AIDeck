@@ -49,7 +49,7 @@ def request(display, auth):
         else:
             os.environ["XAUTHORITY"] = original
     if not connection:
-        raise OSError("Xwayland-Display nicht erreichbar")
+        raise OSError("Xwayland display is unavailable")
     try:
         atom = x11.XInternAtom(connection, b"GAMESCOPECTRL_REQUEST_SCREENSHOT", 0)
         value = C.c_long(1)
@@ -114,4 +114,4 @@ async def capture(destination):
                 await process.wait()
         if process.returncode == 0 and await read_new(before, destination):
             return
-    raise RuntimeError("Gamescope hat keinen Screenshot geliefert. Bitte im Game Mode versuchen.")
+    raise RuntimeError("Gamescope did not return a screenshot. Try again in Game Mode.")
