@@ -8,7 +8,42 @@ const names: Record<number, string> = {
 };
 export const comboLabel = (buttons: number[]) => buttons.map(button => names[button] ?? `Button ${button}`).join(" + ");
 
-type Result = { buttons: number[] } | "short" | "timeout" | "cancelled";
+// Steam's raw controller state follows the Steam Deck report layout:
+// ulButtons holds the low 32 button bits, ulUpperButtons the high 32 bits.
+const STATE_BITS: Record<number, [upper: boolean, bit: number]> = {
+  0: [false, 7], 1: [false, 5], 2: [false, 6], 3: [false, 4],
+  4: [false, 8], 5: [false, 9], 6: [false, 11], 7: [false, 10],
+  8: [false, 14], 9: [false, 12], 25: [false, 22], 28: [false, 1], 29: [false, 0],
+  30: [false, 3], 31: [false, 2], 32: [true, 9], 33: [true, 10], 34: [false, 13],
+  35: [false, 12], 36: [false, 14], 37: [false, 17], 39: [false, 18], 41: [false, 26],
+  44: [false, 15], 45: [false, 16],
+};
+export type StateInput = { unControllerIndex: number; ulButtons: number; ulUpperButtons: number };
+export const stateSupports = (buttons: number[]) => buttons.length >= 2 && buttons.every(button => button in STATE_BITS);
+export function statePressed(state: StateInput, button: number) {
+  const entry = STATE_BITS[button];
+  if (!entry) return false;
+  const [upper, bit] = entry;
+  return (((upper ? state.ulUpperButtons : state.ulButtons) >>> bit) & 1) === 1;
+}
+
+/**
+ * Detects the shortcut from raw controller state. Steam only delivers
+ * controller input messages while its UI has focus; state changes also
+ * arrive while a game is in front.
+ */
+export class StateShortcut {
+  private latched = new Map<number, boolean>();
+  input(state: StateInput, buttons: number[]) {
+    const active = stateSupports(buttons) && buttons.every(button => statePressed(state, button));
+    const previous = this.latched.get(state.unControllerIndex);
+    this.latched.set(state.unControllerIndex, active);
+    return active && previous === false;
+  }
+  reset() { this.latched.clear(); }
+}
+
+type Result ={ buttons: number[] } | "short" | "timeout" | "cancelled";
 type Controller = { held: Set<number>; deferred: Set<number>; latched: boolean };
 type Recording = {
   start: number;

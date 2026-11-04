@@ -3,8 +3,13 @@ export type NativeBrowser = {
   LoadURL: (url: string) => void;
   Destroy: () => void;
   m_refKeyboard?: { ShowVirtualKeyboard: () => void; SetAsCurrentVirtualKeyboardTarget?: () => void };
-  m_browserView: { SetFocus: (focused: boolean) => void };
+  m_browserView: {
+    SetFocus: (focused: boolean) => void;
+    GetBounds?: () => { x: number; y: number; width: number; height: number } | undefined;
+    SetBounds?: (x: number, y: number, width: number, height: number) => void;
+  };
 };
+export type ControllerState = { unControllerIndex: number; ulButtons: number; ulUpperButtons: number };
 export type Game = { appid: string; name: string };
 export const steam = window as Window & {
   SteamUIStore?: {
@@ -14,6 +19,7 @@ export const steam = window as Window & {
   SteamClient?: {
     Input?: {
       RegisterForControllerInputMessages?: (callback: (index: number, button: number, pressed: boolean) => void) => Registration;
+      RegisterForControllerStateChanges?: (callback: (changes: ControllerState[]) => void) => Registration;
       ControllerKeyboardSetKeyState?: (key: number, pressed: boolean) => void;
     };
     System?: { OpenVirtualKeyboard?: () => void };

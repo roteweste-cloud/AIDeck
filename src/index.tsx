@@ -3,11 +3,14 @@ import { ChatBrowser } from "./browser";
 import { ROUTE, resumeGame, runningGame, showOverlay } from "./navigation";
 import { Overlay } from "./overlay";
 import { SettingsPanel, type Provider, type Settings } from "./settings";
-import { Shortcut, comboLabel } from "./shortcut";
+import { Shortcut, StateShortcut, comboLabel } from "./shortcut";
 import { steam, drop } from "./steam";
+
+const CAPTURE_TIMEOUT_MS = 6000;
 
 export default definePlugin(() => {
   const shortcut = new Shortcut();
+  const stateShortcut = new StateShortcut();
   const browser = new ChatBrowser();
   let overlay = false;
   let opening = false;
@@ -20,8 +23,11 @@ export default definePlugin(() => {
   let overlayProvider: Provider = provider;
   let loginMode = false;
   let message = "";
+  let keyboardRequests = 0;
+  let openingTimer: number | undefined;
   const statusEvents = new EventTarget();
   const status = () => message;
+  const keyboardRequested = () => keyboardRequests;
   const subscribe = (listener: () => void) => {
     statusEvents.addEventListener("change", listener);
     return () => statusEvents.removeEventListener("change", listener);
@@ -47,10 +53,11 @@ export default definePlugin(() => {
   };
   void load().then(apply).catch(notify);
 
-  const mounted = () => { overlay = true; opening = false; };
+  const mounted = () => { overlay = true; opening = false; clearTimeout(openingTimer); };
   const unmounted = () => {
     overlay = false;
     opening = false;
+    clearTimeout(openingTimer);
     generation++;
     browser.blur();
   };
@@ -67,8 +74,12 @@ export default definePlugin(() => {
     if (!overlay && !opening) {
       opening = true;
       pendingClose = false;
+      // If Steam never mounts the route, the next shortcut must open it again
+      // instead of being treated as "close overlay".
+      clearTimeout(openingTimer);
+      openingTimer = window.setTimeout(() => { opening = false; }, 4000);
       try { showOverlay(); }
-      catch (error) { opening = false; throw error; }
+      catch (error) { opening = false; clearTimeout(openingTimer); throw error; }
     }
   };
 
@@ -82,10 +93,21 @@ export default definePlugin(() => {
     let captureError = "";
     loginMode = false;
     setStatus(current.appid === "global" ? "No game running. Opening chat only." : "Shortcut received. Capturing screenshot…");
+    // The overlay is not visible yet, so confirm the shortcut right away.
+    if (!fromOverlay && current.appid !== "global" && !disposed) {
+      toaster.toast({ title: "AI Deck", body: "Capturing screenshot…", duration: 1500 });
+    }
     try {
       if (current.appid !== "global") {
         try {
-          await call("capture");
+          // Never leave the player waiting on a stuck capture: open the chat anyway.
+          let timeout: number | undefined;
+          await Promise.race([
+            call("capture"),
+            new Promise((_, reject) => {
+              timeout = window.setTimeout(() => reject(new Error("Gamescope did not respond in time.")), CAPTURE_TIMEOUT_MS);
+            }),
+          ]).finally(() => clearTimeout(timeout));
           captured = true;
         } catch (error) {
           captureError = error instanceof Error ? error.message : String(error);
@@ -143,6 +165,10 @@ export default definePlugin(() => {
   };
 
   const keyboard = async () => {
+    // Let the overlay shrink the browser before Steam draws the keyboard,
+    // also when Y comes from the controller instead of the footer button.
+    keyboardRequests++;
+    statusEvents.dispatchEvent(new Event("change"));
     if (busy) return;
     try {
       // On login pages the browser already owns the focused email/password field.
@@ -166,8 +192,9 @@ export default definePlugin(() => {
     input?.ControllerKeyboardSetKeyState?.(key, false);
   };
 
-  let lastTrigger: { source: "steam" | "hid"; time: number } | undefined;
-  const trigger = (source: "steam" | "hid") => {
+  type Source = "steam" | "state" | "hid";
+  let lastTrigger: { source: Source; time: number } | undefined;
+  const trigger = (source: Source) => {
     if (disposed || !shortcut.enabled || (!overlay && !opening && busy)) return;
     const time = performance.now();
     if (lastTrigger && lastTrigger.source !== source && time - lastTrigger.time < 500) return;
@@ -182,9 +209,22 @@ export default definePlugin(() => {
   addEventListener("grip_shortcut", gripShortcut);
 
   let registration: Parameters<typeof drop>[0];
+  let stateRegistration: Parameters<typeof drop>[0];
   const listen = () => {
     drop(registration);
+    drop(stateRegistration);
     shortcut.reset();
+    stateShortcut.reset();
+    // Input messages only arrive while Steam's UI has focus. Raw state changes
+    // also arrive in-game, which is where the shortcut has to open the overlay.
+    stateRegistration = steam.SteamClient?.Input?.RegisterForControllerStateChanges?.(changes => {
+      try {
+        if (disposed || !shortcut.enabled || shortcut.isRecording()) return;
+        for (const state of changes) {
+          if (stateShortcut.input(state, shortcut.buttons)) trigger("state");
+        }
+      } catch (error) { console.warn("AI Deck: Controller state", error); }
+    });
     registration = steam.SteamClient?.Input?.RegisterForControllerInputMessages?.((index, button, pressed) => {
       try {
         const action = shortcut.input(index, button, Boolean(pressed));
@@ -205,14 +245,14 @@ export default definePlugin(() => {
   let lastTick = Date.now();
   const timer = window.setInterval(() => {
     const now = Date.now();
-    if (!registration || now - lastTick > 15_000) listen();
+    if ((!registration && !stateRegistration) || now - lastTick > 15_000) listen();
     lastTick = now;
   }, 2000);
   listen();
 
   routerHook.addRoute(ROUTE, () => (
     <Overlay view={browser.view} label={comboLabel(shortcut.buttons)}
-      leave={leave} mounted={mounted} unmounted={unmounted} loginMode={loginMode}
+      leave={leave} mounted={mounted} unmounted={unmounted} loginMode={loginMode} keyboardRequested={keyboardRequested}
       capture={() => void screenshot(true)} keyboard={() => void keyboard()} status={status} subscribe={subscribe} />
   ));
   try { browser.start(); } catch (error) { console.warn("AI Deck: Browser startup", error); }
@@ -226,8 +266,10 @@ export default definePlugin(() => {
       disposed = true;
       generation++;
       clearInterval(timer);
+      clearTimeout(openingTimer);
       removeEventListener("grip_shortcut", gripShortcut);
       drop(registration);
+      drop(stateRegistration);
       shortcut.reset();
       routerHook.removeRoute(ROUTE);
       browser.destroy();
