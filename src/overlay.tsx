@@ -14,8 +14,8 @@ export function Overlay({ view, label, leave, mounted, unmounted }: {
     return unmounted;
   }, [mounted, unmounted]);
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: "#17191d", zIndex: 100 }}>
-      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: "#17191d" }}>
+      <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", zIndex: 0 }}>
         {view && BrowserContainer
           ? <BrowserContainer browser={view} visible external autoFocus hideForModals displayURLBar={false} className={browserClass} />
           : <p style={{ padding: 24 }}>This Steam version does not expose the browser used by AI Deck.</p>}

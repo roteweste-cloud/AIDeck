@@ -41,6 +41,7 @@ export class Shortcut {
   }
 
   cancelRecording() { this.finish("cancelled"); }
+  isRecording() { return this.recording !== undefined; }
 
   reset() {
     this.cancelRecording();

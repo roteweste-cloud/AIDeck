@@ -1,4 +1,4 @@
-import { call, definePlugin, routerHook, toaster } from "@decky/api";
+import { addEventListener, call, definePlugin, removeEventListener, routerHook, toaster } from "@decky/api";
 import { ChatBrowser } from "./browser";
 import { ROUTE, resumeGame, runningGame, showOverlay } from "./navigation";
 import { Overlay } from "./overlay";
@@ -69,14 +69,18 @@ export default definePlugin(() => {
     let captured = false;
     try {
       if (current.appid !== "global") {
-        await call("capture");
-        captured = true;
+        try {
+          await call("capture");
+          captured = true;
+        } catch (error) {
+          notify(error);
+        }
       }
       if (disposed || generation !== id) return;
       game = current;
       overlayProvider = selected;
       open();
-      await browser.ready();
+      try { await browser.ready(); } catch (error) { notify(error); }
       if (disposed || generation !== id) return;
       if (captured) await call<[string, string, Provider], void>("send_to_chat", game.appid, game.name, selected);
       else browser.view?.LoadURL(await call<[string, Provider], string>("chat_for_game", game.appid, selected));
@@ -113,12 +117,17 @@ export default definePlugin(() => {
   const keyboard = async () => {
     if (busy) return;
     try {
-      const focused = await call<[string, Provider], boolean>("browser_action", "focus", overlayProvider);
+      // On login pages the browser already owns the focused email/password field.
+      // Composer detection only applies to the provider's chat page.
+      try { await call<[string, Provider], boolean>("browser_action", "focus", overlayProvider); }
+      catch (error) { console.warn("AI Deck: Composer focus", error); }
       if (!overlay || pendingClose) return;
-      if (!focused) throw new Error("The chat composer is not ready yet.");
       const view = browser.view;
       view?.m_browserView.SetFocus(true);
-      if (view?.m_refKeyboard) view.m_refKeyboard.ShowVirtualKeyboard();
+      if (view?.m_refKeyboard) {
+        view.m_refKeyboard.SetAsCurrentVirtualKeyboardTarget?.();
+        view.m_refKeyboard.ShowVirtualKeyboard();
+      }
       else if (steam.SteamClient?.System?.OpenVirtualKeyboard) steam.SteamClient.System.OpenVirtualKeyboard();
       else notify("Open the on-screen keyboard with Steam + X.");
     } catch (error) { notify(error); }
@@ -129,6 +138,21 @@ export default definePlugin(() => {
     input?.ControllerKeyboardSetKeyState?.(key, false);
   };
 
+  let lastTrigger: { source: "steam" | "hid"; time: number } | undefined;
+  const trigger = (source: "steam" | "hid") => {
+    if (disposed || !shortcut.enabled || (!overlay && !opening && busy)) return;
+    const time = performance.now();
+    if (lastTrigger && lastTrigger.source !== source && time - lastTrigger.time < 500) return;
+    lastTrigger = { source, time };
+    if (overlay || opening) leave();
+    else void screenshot();
+  };
+  const gripShortcut = () => {
+    if (shortcut.buttons.length === 2 && shortcut.buttons.includes(32) && shortcut.buttons.includes(33)
+        && !shortcut.isRecording()) trigger("hid");
+  };
+  addEventListener("grip_shortcut", gripShortcut);
+
   let registration: Parameters<typeof drop>[0];
   const listen = () => {
     drop(registration);
@@ -137,8 +161,7 @@ export default definePlugin(() => {
       try {
         const action = shortcut.input(index, button, Boolean(pressed));
         if (action === "fire") {
-          if (overlay || opening) leave();
-          else void screenshot();
+          trigger("steam");
           return;
         }
         if (action !== "press" || !overlay || pendingClose) return;
@@ -169,11 +192,12 @@ export default definePlugin(() => {
     titleView: <span>AI Deck</span>,
     icon: <span>AI</span>,
     content: <SettingsPanel shortcut={shortcut} load={load} save={save}
-      open={() => void openChat()} reset={() => void openChat(true)} report={notify} />,
+      open={() => void openChat()} capture={() => void screenshot()} reset={() => void openChat(true)} report={notify} />,
     onDismount() {
       disposed = true;
       generation++;
       clearInterval(timer);
+      removeEventListener("grip_shortcut", gripShortcut);
       drop(registration);
       shortcut.reset();
       routerHook.removeRoute(ROUTE);

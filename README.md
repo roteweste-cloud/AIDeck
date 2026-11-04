@@ -7,6 +7,8 @@ AI Deck opens your selected AI chat in Steam Deck Game Mode. Press **L4 + R4** i
 3. Open **AI Deck** in the Quick Access menu (…), choose an **AI provider** and select **Open … / sign in**.
 4. Start a game and press **L4 + R4**. Press it again to return to the game.
 
+If the shortcut does not trigger, open AI Deck in the Quick Access menu and select **Capture screenshot and open chat** to check capture separately. If capture fails, AI Deck opens the chat and shows the error. The default L4 + R4 shortcut also listens for the built-in Deck controller when its read-only HID interface is available. Custom shortcuts use Steam Input.
+
 ChatGPT opens in dark mode. Claude, Gemini, DeepSeek and Perplexity have experimental web integrations. Use a mode and account that accept image uploads. DeepSeek's ability to interpret the screenshot depends on the model and web client. Some embedded sign-in flows, including Google sign-in, may fail. AI Deck uses the selected provider's web session without an API key.
 
 | Overlay button | Action |

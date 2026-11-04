@@ -12,10 +12,11 @@ export type PanelProps = {
   load: () => Promise<Settings>;
   save: (value: Settings) => Promise<void>;
   open: () => void;
+  capture: () => void;
   reset: () => void;
   report: (error: unknown) => void;
 };
-export function SettingsPanel({ shortcut, load, save, open, reset, report }: PanelProps) {
+export function SettingsPanel({ shortcut, load, save, open, capture, reset, report }: PanelProps) {
   const [settings, setSettings] = useState<Settings>();
   const [prompts, setPrompts] = useState<Settings["prompts"]>();
   const [status, setStatus] = useState<Status>();
@@ -66,6 +67,7 @@ export function SettingsPanel({ shortcut, load, save, open, reset, report }: Pan
           });
         }}>Record shortcut</ButtonItem></PanelSectionRow>
       <PanelSectionRow><ButtonItem layout="below" onClick={open}>Open {providers[settings.provider]} / sign in</ButtonItem></PanelSectionRow>
+      <PanelSectionRow><ButtonItem layout="below" onClick={capture}>Capture screenshot and open chat</ButtonItem></PanelSectionRow>
       <PanelSectionRow><ButtonItem layout="below" onClick={reset}>Reset chat for current game</ButtonItem></PanelSectionRow>
       <PanelSectionRow>
         <div>{providers[settings.provider]}: {status?.provider !== settings.provider || status.ready === null

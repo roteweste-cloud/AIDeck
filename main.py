@@ -10,6 +10,7 @@ import decky
 
 import web_driver
 import screenshot
+from grips import watch_grips
 from cdp import CDP, find_target, socket_url
 
 BASE = Path(__file__).resolve().parent
@@ -48,8 +49,15 @@ class Plugin:
         self.last_error = ""
         self.temporary = tempfile.TemporaryDirectory(prefix="aideck-")
         self.shot = Path(self.temporary.name) / "shot.png"
+        self.grip_task = asyncio.create_task(watch_grips(self.grip_pressed))
+
+    async def grip_pressed(self):
+        if self.settings["enabled"] and set(self.settings["buttons"]) == {32, 33}:
+            await decky.emit("grip_shortcut")
 
     async def _unload(self):
+        self.grip_task.cancel()
+        await asyncio.gather(self.grip_task, return_exceptions=True)
         async with self.lock:
             await self.theme_connection.aclose()
             self.temporary.cleanup()

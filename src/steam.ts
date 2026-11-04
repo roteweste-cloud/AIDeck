@@ -2,7 +2,7 @@ type Registration = { unregister?: () => void; Unregister?: () => void };
 export type NativeBrowser = {
   LoadURL: (url: string) => void;
   Destroy: () => void;
-  m_refKeyboard?: { ShowVirtualKeyboard: () => void };
+  m_refKeyboard?: { ShowVirtualKeyboard: () => void; SetAsCurrentVirtualKeyboardTarget?: () => void };
   m_browserView: { SetFocus: (focused: boolean) => void };
 };
 export type Game = { appid: string; name: string };
