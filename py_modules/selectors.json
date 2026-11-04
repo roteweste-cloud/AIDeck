@@ -1,0 +1,9 @@
+{
+  "composer": "#prompt-textarea",
+  "send": "[data-testid=\"send-button\"]",
+  "file": "input[type=\"file\"]",
+  "login": "[data-testid=\"login-button\"], [data-testid=\"signup-button\"]",
+  "attachment": "[data-testid*=\"attachment\"], [data-testid*=\"file-thumbnail\"], button[aria-label*=\"Remove file\" i], button[aria-label*=\"Datei entfernen\" i], img[alt=\"Uploaded image\"]",
+  "busy": "[data-testid=\"stop-button\"]",
+  "user": "[data-message-author-role=\"user\"]"
+}
