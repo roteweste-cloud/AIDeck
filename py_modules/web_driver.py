@@ -52,10 +52,11 @@ async def send(cdp, provider, url, screenshot, prompt):
         if result.get("errorText"):
             raise RuntimeError("Could not open the selected provider.")
     state = await wait_for(cdp, provider,
-                           lambda s: (s["path"] == path or (is_new and new_chat_path(provider, s["path"])))
-                           and (s["composer"] or s["login"]), 20)
-    if not state or (state["login"] and not state["composer"]):
-        raise RuntimeError("Chat is not ready. Sign in or complete the browser check, then try again.")
+                           lambda s: s["login"] or (
+                               (s["path"] == path or (is_new and new_chat_path(provider, s["path"])))
+                               and s["composer"]), 20)
+    if not state or state["login"]:
+        raise RuntimeError("Screenshot captured but not sent. Sign in or complete the browser check, then choose X · Send screenshot.")
     path = state["path"]
     if state["draft"] or state["attachment"]:
         raise RuntimeError("The chat has a draft. Send or clear it first.")

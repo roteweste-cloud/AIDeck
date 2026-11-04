@@ -176,7 +176,7 @@ class Plugin:
             try:
                 state = await self.browser_action("state", provider_id)
                 if state:
-                    ready = True if state["composer"] else (False if state["login"] else None)
+                    ready = False if state["login"] else (True if state["composer"] else None)
             except Exception:
                 pass
         return {"provider": provider_id, "ready": ready, "lastError": self.last_error}

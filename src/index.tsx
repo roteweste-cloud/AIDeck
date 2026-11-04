@@ -18,6 +18,18 @@ export default definePlugin(() => {
   let game = runningGame();
   let provider: Provider = "chatgpt";
   let overlayProvider: Provider = provider;
+  let loginMode = false;
+  let message = "";
+  const statusEvents = new EventTarget();
+  const status = () => message;
+  const subscribe = (listener: () => void) => {
+    statusEvents.addEventListener("change", listener);
+    return () => statusEvents.removeEventListener("change", listener);
+  };
+  const setStatus = (value: string) => {
+    message = value;
+    statusEvents.dispatchEvent(new Event("change"));
+  };
 
   const notify = (error: unknown) => {
     if (!disposed) toaster.toast({ title: "AI Deck", body: error instanceof Error ? error.message : String(error) });
@@ -67,24 +79,38 @@ export default definePlugin(() => {
     const selected = fromOverlay ? overlayProvider : provider;
     busy = true;
     let captured = false;
+    let captureError = "";
+    loginMode = false;
+    setStatus(current.appid === "global" ? "No game running. Opening chat only." : "Shortcut received. Capturing screenshot…");
     try {
       if (current.appid !== "global") {
         try {
           await call("capture");
           captured = true;
         } catch (error) {
-          notify(error);
+          captureError = error instanceof Error ? error.message : String(error);
         }
       }
       if (disposed || generation !== id) return;
       game = current;
       overlayProvider = selected;
       open();
-      try { await browser.ready(); } catch (error) { notify(error); }
+      try { await browser.ready(); }
+      catch (error) {
+        browser.view?.LoadURL(await call<[string, Provider], string>("chat_for_game", game.appid, selected));
+        throw error;
+      }
       if (disposed || generation !== id) return;
-      if (captured) await call<[string, string, Provider], void>("send_to_chat", game.appid, game.name, selected);
-      else browser.view?.LoadURL(await call<[string, Provider], string>("chat_for_game", game.appid, selected));
+      if (captured) {
+        setStatus("Screenshot captured. Waiting for the provider…");
+        await call<[string, string, Provider], void>("send_to_chat", game.appid, game.name, selected);
+        setStatus("Screenshot and prompt sent.");
+      } else {
+        browser.view?.LoadURL(await call<[string, Provider], string>("chat_for_game", game.appid, selected));
+        if (captureError) setStatus(`Screenshot capture failed: ${captureError}`);
+      }
     } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
       notify(error);
     } finally {
       if (captured) {
@@ -102,6 +128,8 @@ export default definePlugin(() => {
       game = fromOverlay ? game : runningGame();
       const selected = fromOverlay ? overlayProvider : provider;
       overlayProvider = selected;
+      loginMode = !reset;
+      setStatus(reset ? "" : "Sign in here, then choose X · Send screenshot in a running game.");
       open();
       const view = browser.view;
       // Manual login remains available if Steam's debugger cannot connect.
@@ -184,7 +212,8 @@ export default definePlugin(() => {
 
   routerHook.addRoute(ROUTE, () => (
     <Overlay view={browser.view} label={comboLabel(shortcut.buttons)}
-      leave={leave} mounted={mounted} unmounted={unmounted} />
+      leave={leave} mounted={mounted} unmounted={unmounted} loginMode={loginMode}
+      capture={() => void screenshot(true)} keyboard={() => void keyboard()} status={status} subscribe={subscribe} />
   ));
   try { browser.start(); } catch (error) { console.warn("AI Deck: Browser startup", error); }
   return {

@@ -4,6 +4,7 @@
   if (expectedPath && path !== expectedPath) return null;
   const visible = (element) => element.getClientRects().length > 0;
   const find = (selector) => [...document.querySelectorAll(selector)].find(visible);
+  const loginForm = !!find('input[type="password"], input[autocomplete="username"], input[autocomplete="one-time-code"]');
   const composer = find(selectors.composer);
   const send = find(selectors.send);
   const form = composer?.closest("form") ?? composer?.parentElement?.parentElement;
@@ -16,7 +17,7 @@
   switch (action) {
     case "state":
       return {
-        path, composer: !!composer, login: select("login"),
+        path, composer: !!composer, login: loginForm || select("login"),
         attachment, draft,
         busy: select("busy"),
         enabled,
@@ -32,6 +33,7 @@
       return true;
     }
     case "focus":
+      if (loginForm || document.activeElement?.matches('input, textarea, [contenteditable="true"]')) return true;
       composer?.focus();
       return !!composer;
     case "send":
